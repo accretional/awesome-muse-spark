@@ -6,7 +6,7 @@ Tools and unofficial knowledge base / resources for Meta's Muse Spark LLM
 First issue I ran into getting Muse Spark 1.1 working with Codex after following their guide at https://dev.meta.ai/docs/guides/coding-agents (seems non-public so not sharing its contents here): **tool-calling for anything besides the server-side tools didn't seem to work.**
 
 <details>
-<summary>Error log + root cause (click to expand)</summary>
+<summary>(click to expand) Error log + root cause per Claude Fable</summary>
 
 **What it looks like in Codex.** The *first* turn works — the model runs a web
 search and even executes a shell command — but every turn *after* a search dies
