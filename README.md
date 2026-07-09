@@ -5,7 +5,67 @@ Tools and unofficial knowledge base / resources for Meta's Muse Spark LLM
 
 First issue I ran into getting Muse Spark 1.1 working with Codex after following their guide at https://dev.meta.ai/docs/guides/coding-agents (seems non-public so not sharing its contents here): **tool-calling for anything besides the server-side tools didn't seem to work.**
 
-TODO(Claude) add error log / contex in a collapsible ui element
+<details>
+<summary>Error log + root cause (click to expand)</summary>
+
+**What it looks like in Codex.** The *first* turn works — the model runs a web
+search and even executes a shell command — but every turn *after* a search dies
+identically, so the session is effectively bricked once it searches once:
+
+```text
+$ codex exec "search the web for <query>, then run: echo OK"
+OpenAI Codex v0.144.0
+--------
+model: muse-spark-1.1
+provider: meta
+--------
+warning: Model metadata for `muse-spark-1.1` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.
+
+codex
+web search: <query>
+exec
+  /bin/bash -lc 'echo OK'
+  succeeded in 0ms:
+  OK
+
+web search: <query>
+web search: <query>
+ERROR: {"error":{"code":null,"message":"`input[6]` missing required field `id`","param":"input[6]","type":"invalid_request_error"}}
+```
+
+**Root cause.** It isn't your tools config — the `web_search` tool is injected
+**server-side**, and the failure is in how history is *replayed*. The Responses
+API requires an `id` on a replayed `web_search_call` item, but Codex strips
+server-assigned ids when it rebuilds the `input` array for the next turn. So the
+second request carries an id-less `web_search_call` and gets rejected — and since
+that item stays in history, every subsequent turn fails the same way.
+
+You can see it straight against the raw API, no Codex involved:
+
+```console
+# Replay a web_search_call WITHOUT an id  ->  400
+$ curl -s https://api.meta.ai/v1/responses \
+    -H "Authorization: Bearer $MODEL_API_KEY" -H 'Content-Type: application/json' \
+    -d '{"model":"muse-spark-1.1","input":[
+          {"type":"message","role":"user","content":[{"type":"input_text","text":"hi"}]},
+          {"type":"web_search_call","status":"completed","action":{"type":"search","query":"x"}},
+          {"type":"message","role":"user","content":[{"type":"input_text","text":"continue"}]}
+        ]}'
+{"error":{"code":null,"message":"`input[1]` missing required field `id`","param":"input[1]","type":"invalid_request_error"}}
+
+# Same request, but with ANY id on the web_search_call  ->  200 OK
+$ curl -s https://api.meta.ai/v1/responses ... \
+    -d '{... {"type":"web_search_call","id":"ws_anything_001","status":"completed", ...} ...}'
+{"id":"resp_...","object":"response","status":"completed","output":[ ... ]}
+```
+
+The server accepts a fabricated id, which is exactly what the shim below does —
+it stamps an id back onto any id-less `web_search_call` and forwards the rest
+untouched. (There's no Codex-side knob for this: the tool is server-side, and
+`wire_api = "chat"` was removed in recent Codex, so you can't just drop off the
+Responses surface.)
+
+</details>
 
 Maybe I missed something, but I checked the API docs pretty thoroughly I think and verified my codex install was up to date, and didn't find anything wrong. I think it could be a genuine launch bug.
 
