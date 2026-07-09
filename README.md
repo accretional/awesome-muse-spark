@@ -67,11 +67,11 @@ Responses surface.)
 
 </details>
 
-Maybe I missed something, but I checked the API docs pretty thoroughly I think and verified my codex install was up to date, and didn't find anything wrong. I think it could be a genuine launch bug.
+Maybe I missed something, but I checked the API docs pretty thoroughly I think and verified my Codex install was up to date (0.143.0, and the bug still happened after upgrading to 0.144.0), and didn't find anything wrong. I think it could be a genuine launch bug.
 
 ## Fix - Reverse proxy shim to fix `id` replay
 
-I sicced a different agent on the problem; it also thought it was just a format mismatch, and gave me this reverse proxy to run within the container I was running codex and muse to get them talking to each other. **It worked**: <img width="914" height="414" alt="image" src="https://github.com/user-attachments/assets/7c03a091-b6c2-4f6f-8ef7-ec0020657db3" />
+I sicced a different agent on the problem; it also thought it was just a format mismatch, and gave me this reverse proxy to run inside the container where I was running Codex and Muse, to get them talking to each other. **It worked**: <img width="914" height="414" alt="image" src="https://github.com/user-attachments/assets/7c03a091-b6c2-4f6f-8ef7-ec0020657db3" />
 
 The fix:
 
@@ -128,5 +128,31 @@ http.createServer((cReq, cRes) => {
 }).listen(Number(port), host, () => console.log(`meta-shim: ${LISTEN} -> https://${UPSTREAM}`));
 MJS
 ```
+
+### Running it
+
+Start the shim wherever Codex runs (it listens on `127.0.0.1:3400` and forwards
+on to the real `api.meta.ai`):
+
+```bash
+node /usr/local/bin/meta-shim.mjs &
+```
+
+Then point Codex's provider at the shim instead of Meta directly — just change
+`base_url` in `~/.codex/config.toml` (everything else from the setup guide stays
+the same):
+
+```toml
+[model_providers.meta]
+name = "Meta Model API"
+base_url = "http://127.0.0.1:3400/v1"   # was https://api.meta.ai/v1
+env_key = "MODEL_API_KEY"
+wire_api = "responses"
+```
+
+Now run `codex` as usual — web search, and any tool turn after it, works. If
+Codex runs in a different container from the shim, set
+`META_SHIM_LISTEN=0.0.0.0:3400` (default `127.0.0.1:3400`) and use that host in
+`base_url`.
 
 Liking this model so far and will add more later - happy musing!
