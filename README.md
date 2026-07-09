@@ -1,7 +1,7 @@
 # awesome-muse-spark
 Tools and unofficial knowledge base / resources for Meta's Muse Spark LLM
 
-# Day 1 - Codex
+# Codex Tool-Calling, and "missing required field `id`"
 
 First issue I ran into getting Muse Spark 1.1 working with Codex after following their guide at https://dev.meta.ai/docs/guides/coding-agents (seems non-public so not sharing its contents here): **tool-calling for anything besides the server-side tools didn't seem to work.**
 
@@ -68,6 +68,8 @@ Responses surface.)
 </details>
 
 Maybe I missed something, but I checked the API docs pretty thoroughly I think and verified my codex install was up to date, and didn't find anything wrong. I think it could be a genuine launch bug.
+
+## Fix - Reverse proxy shim to fix `id` replay
 
 I sicced a different agent on the problem; it also thought it was just a format mismatch, and gave me this reverse proxy to run within the container I was running codex and muse to get them talking to each other. **It worked**: <img width="914" height="414" alt="image" src="https://github.com/user-attachments/assets/7c03a091-b6c2-4f6f-8ef7-ec0020657db3" />
 
